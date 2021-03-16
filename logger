@@ -1,0 +1,86 @@
+#!/bin/bash
+. ~/ziply.profile
+OUTFILE=$HOME/htdocs/cgi-bin/logger.dat
+ARGDATE=`date +'%F %T'`
+echo "Content-type: text/html"
+echo ""
+
+echo '<html>'
+echo '<head>'
+echo '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">'
+echo '<title>Logger Response</title>'
+echo '</head>'
+echo '<body>'
+
+# Save the old internal field separator.
+  OIFS="$IFS"
+
+# Set the field separator to & and parse the QUERY_STRING at the ampersand.
+  IFS="${IFS}&"
+  set $QUERY_STRING
+  Args="$*"
+  IFS="$OIFS"
+
+# Next parse the individual "name=value" tokens.
+
+  ARGA=""
+  ARGB=""
+  ARGC=""
+  ARGX=""
+  ARGY=""
+  ARGZ=""
+  RET_MSG="INPUT OK"
+
+  for i in $Args ;do
+
+#       Set the field separator to =
+        IFS="${OIFS}="
+        set $i
+        IFS="${OIFS}"
+
+        #Filter problematic characters
+        ARG="`echo $2 | sed 's|[\]||g' | sed 's|%20| |g'`"
+
+        case $1 in
+                username) ARGA=$ARG; RET_MSG="$RET_MSG<br>$1=$ARG"
+                       ;;
+                hostname) ARGB=$ARG; RET_MSG="$RET_MSG<br>$1=$ARG"
+                       ;;
+                auth_key) ARGC=$ARG;
+                       ;;
+                routing_key) ARGX=$ARG; RET_MSG="$RET_MSG<br>$1=$ARG"
+                       ;;
+                status) ARGY=$ARG; RET_MSG="$RET_MSG<br>$1=$ARG"
+                       ;;
+                details) ARGZ=$ARG; RET_MSG="$RET_MSG<br>$1=$ARG"
+                       ;;
+                *)     echo "<hr>Warning:"\
+                            "<br>Unrecognized variable '$1' in QUERY_STRING.<hr>"
+                       ;;
+
+        esac
+  done
+
+#Make sure the required fields are there
+STATUS="OK"
+[[ -z $ARGA ]] && STATUS=FAIL
+[[ -z $ARGB ]] && STATUS=FAIL
+[[ -z $ARGC ]] && STATUS=FAIL
+[[ -z $ARGX ]] && STATUS=FAIL
+[[ -z $ARGY ]] && STATUS=FAIL
+
+[[ $STATUS == "OK" ]] || echo "<br>ERROR: Missing input data"
+[[ $ARGC == $LOGGER_AUTH_KEY ]] || {
+        STATUS=FAIL
+        echo "<br>ERROR: Incorrect authorization key"
+}
+[[ $STATUS == "OK" ]] && {
+        echo "$RET_MSG <BR> $ARGDATE"
+        OUTPUT="$ARGA | $ARGB | $ARGDATE | $ARGX | $ARGY | $ARGZ"
+        echo $OUTPUT >> $OUTFILE
+}
+
+echo '</body>'
+echo '</html>'
+
+exit 0
